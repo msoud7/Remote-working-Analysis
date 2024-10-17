@@ -5,64 +5,72 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
-```{r loading packages}
+```{r loading packages message = FALSE, warning = FALSE}
 library(dplyr)
 library(readxl)
 library(tidyr)
 library(readr)
 library(ggplot2)
 library(ltm)
+library(janitor)
 ```
 
 ```{r load and mutate data}
+# Read in the data
 data <- read_excel("Master File.xlsx")
 
-# Mutate dataframe for the questions of interest:
+# Clean column names to remove special characters
+data <- janitor::clean_names(data)  # janitor::clean_names() makes all names lowercase, replaces spaces with underscores, etc.
 
+# Define selected columns based on the cleaned names
+selected_columns <- c("in_what_kind_of_place_do_you_typically_work",
+                      "in_your_main_job_have_you_spent_at_least_one_full_day_in_the_last_four_weeks_working",
+                      "how_frequently_did_you_work_from_home_in_the_last_four_weeks",
+                      "i_currently_have_a_good_balance_between_the_time_i_spend_at_work_and_the_time_i_have_available_for_non_work_activities",
+                      "i_have_sufficient_time_away_from_my_job_to_maintain_adequate_well_being",
+                      "i_am_satisfied_with_my_work_life_balance",
+                      "my_personal_life_suffers_because_of_work_43",
+                      "when_i_get_home_i_am_often_too_exhausted_to_participate_in_family_activities",
+                      "the_problem_solving_behaviours_i_use_in_my_job_are_not_effective_in_resolving_problems_at_home",
+                      "the_time_i_spend_on_family_responsibilities_often_interferes_with_my_work",
+                      "due_to_stress_at_home_i_am_often_preoccupied_with_family_matters_at_work",
+                      "the_behaviours_that_work_for_me_at_home_do_not_seem_to_be_effective_at_work",
+                      "what_is_your_gender",
+                      "what_is_your_age",
+                      "do_you_work_right_now_or_have_you_worked_in_the_last_year",
+                      "in_what_job_industry_was_is_this_work",
+                      "how_many_years_of_experience_do_you_have_in_your_current_last_years_job_numbers_only",
+                      "what_is_the_highest_level_of_education_that_you_have_completed",
+                      "what_is_your_type_of_employment")
+
+# Select the columns of interest
 data <- data %>% 
-  #select questions of interest
-  select(c("In what kind of place do you typically work?",
-           "(In your main job) have you spent at least one full day in the last four weeks working...",
-           "How frequently did you work from home in the last four weeks?",
-           "I currently have a good balance between the time I spend at work and the time I have available for non-work activities.",
-           "I have sufficient time away from my job to maintain adequate well-being.",
-           "I am satisfied with my work-life balance.",
-           "My personal life suffers because of work....43",
-           "When I get home I am often too exhausted to participate in family activities.",
-           "The problem-solving behaviours I use in my job are not effective in resolving problems at home.",
-           "The time i spend on family responsibilities often interferes with my work.",
-           "Due to stress at home, I am often preoccupied with family matters at work.",
-           "The behaviours that work for me at home do not seem to be effective at work.",
-           "What is your gender?",
-           "What is your age?",
-           "Do you work right now, or have you worked in the last year?",
-           "In what job industry was/is this work?",
-           "How many years of experience do you have in your (current/last years) job? (numbers only)",
-           "What is the highest level of education that you have completed?",
-           "What is your type of employment?"
-           )) %>% 
-  #rename these variables
-  rename(location = "In what kind of place do you typically work?",
-         work_last_4weeks = "(In your main job) have you spent at least one full day in the last four weeks working...",
-         home_work_freq = "How frequently did you work from home in the last four weeks?",
-         WLB1 = "I currently have a good balance between the time I spend at work and the time I have available for non-work activities.",
-         WLB2 = "I have sufficient time away from my job to maintain adequate well-being.",
-         WLB3 = "I am satisfied with my work-life balance.",
-         WFC1 = "My personal life suffers because of work....43",
-         WFC2 = "When I get home I am often too exhausted to participate in family activities.",
-         WFC3 = "The problem-solving behaviours I use in my job are not effective in resolving problems at home.",
-         FWC1 = "The time i spend on family responsibilities often interferes with my work.",
-         FWC2 = "Due to stress at home, I am often preoccupied with family matters at work.",
-         FWC3 = "The behaviours that work for me at home do not seem to be effective at work.",
-         gender = "What is your gender?",
-         age = "What is your age?",
-         working_status = "Do you work right now, or have you worked in the last year?",
-         industry = "In what job industry was/is this work?",
-         experience = "How many years of experience do you have in your (current/last years) job? (numbers only)",
-         education_level = "What is the highest level of education that you have completed?",
-         employment_type = "What is your type of employment?"
-  )
+  dplyr::select(all_of(selected_columns))
 
+# Rename the selected columns
+data <- data %>%
+  rename(location = in_what_kind_of_place_do_you_typically_work,
+         work_last_4weeks = in_your_main_job_have_you_spent_at_least_one_full_day_in_the_last_four_weeks_working,
+         home_work_freq = how_frequently_did_you_work_from_home_in_the_last_four_weeks,
+         WLB1 = i_currently_have_a_good_balance_between_the_time_i_spend_at_work_and_the_time_i_have_available_for_non_work_activities,
+         WLB2 = i_have_sufficient_time_away_from_my_job_to_maintain_adequate_well_being,
+         WLB3 = i_am_satisfied_with_my_work_life_balance,
+         WFC1 = my_personal_life_suffers_because_of_work_43,
+         WFC2 = when_i_get_home_i_am_often_too_exhausted_to_participate_in_family_activities,
+         WFC3 = the_problem_solving_behaviours_i_use_in_my_job_are_not_effective_in_resolving_problems_at_home,
+         FWC1 = the_time_i_spend_on_family_responsibilities_often_interferes_with_my_work,
+         FWC2 = due_to_stress_at_home_i_am_often_preoccupied_with_family_matters_at_work,
+         FWC3 = the_behaviours_that_work_for_me_at_home_do_not_seem_to_be_effective_at_work,
+         gender = what_is_your_gender,
+         age = what_is_your_age,
+         working_status = do_you_work_right_now_or_have_you_worked_in_the_last_year,
+         industry = in_what_job_industry_was_is_this_work,
+         experience = how_many_years_of_experience_do_you_have_in_your_current_last_years_job_numbers_only,
+         education_level = what_is_the_highest_level_of_education_that_you_have_completed,
+         employment_type = what_is_your_type_of_employment)
+
+# Check the renamed data
+head(data)
 ```
 
 ```{r create working at home variable}
@@ -82,7 +90,7 @@ determine_work_type <- function(location, work_last_4weeks, home_work_freq) {
 
 data <- data %>%
   mutate(RW = mapply(determine_work_type, location, work_last_4weeks, home_work_freq)) %>% 
-  select(-c("location", "work_last_4weeks", "home_work_freq")) %>% 
+  dplyr::select(-c("location", "work_last_4weeks", "home_work_freq")) %>% 
   na.omit() # removed 4 observations! check if this can be prevented.
 
 # Reverse coding WFC and FWC items
