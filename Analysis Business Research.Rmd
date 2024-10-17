@@ -1,9 +1,20 @@
+---
+title: "Analysis Business Research"
+author: "Melle Stephen Oudshoorn"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r loading packages}
 library(dplyr)
 library(readxl)
 library(tidyr)
 library(readr)
 library(ggplot2)
+library(ltm)
+```
 
+```{r load and mutate data}
 data <- read_excel("Master File.xlsx")
 
 # Mutate dataframe for the questions of interest:
@@ -52,6 +63,75 @@ data <- data %>%
          employment_type = "What is your type of employment?"
   )
 
+```
+
+```{r create working at home variable}
+determine_work_type <- function(location, work_last_4weeks, home_work_freq) {
+  if (location == 1) {
+    return(1)  # Works from Home
+  } else if (location %in% 2:8 && work_last_4weeks %in% 1:2 && home_work_freq == 1) {
+    return(2)  # Works Hybrid
+  } else if (location %in% 2:8 && work_last_4weeks == 3) {
+    return(3)  # Works on location
+  } else if (location %in% 2:8 && work_last_4weeks %in% 1:2 && home_work_freq == 2) {
+    return(3)  # Works on location
+  } else {
+    return(3)
+  }
+}
+
+data <- data %>%
+  mutate(RW = mapply(determine_work_type, location, work_last_4weeks, home_work_freq)) %>% 
+  select(-c("location", "work_last_4weeks", "home_work_freq")) %>% 
+  na.omit() # removed 4 observations! check if this can be prevented.
+
+# Reverse coding WFC and FWC items
+data <- data %>%
+  mutate(
+    WFC1 = 6 - WFC1,  # Assuming a 5-point scale (1 to 5)
+    WFC2 = 6 - WFC2,
+    WFC3 = 6 - WFC3,
+    FWC1 = 6 - FWC1,
+    FWC2 = 6 - FWC2,
+    FWC3 = 6 - FWC3
+  )
+```
+
+```{r crohnbach alpha}
+
+#initialise list of multi-item constructs
+constructs <- list(
+  WLB = c("WLB1", "WLB2", "WLB3"),
+  WFC = c("WFC1", "WFC2", "WFC3"),   
+  FWC = c("FWC1", "FWC2", "FWC3"),
+  CONFLICTS = c("WFC1", "WFC2", "WFC3", "FWC1", "FWC2", "FWC3")
+)
+
+#create function to calculate the alpha
+calculate_cronbach_alpha <- function(items) {
+  alpha_result <- cronbach.alpha(data[, items], na.rm = TRUE)
+  return(alpha_result)
+}
+
+#loop
+cronbach_results <- lapply(constructs, calculate_cronbach_alpha)
+
+for (construct_name in names(cronbach_results)) {
+  cat("Cronbach's Alpha for", construct_name, ":", cronbach_results[[construct_name]]$alpha, "\n")
+}
+```
+
+The Alpha for WLB and FWC are acceptable, unfortunately WFC does not meet the requirement of at least 0.7. However, when I remove any question, the alpha just gets lowered. Because of that I will accept this bias, and move on with all of these items for WFC.
+
+```{r create the scores}
+data <- mutate(data, WLB_score = rowMeans(data[, c("WLB1", "WLB2", "WLB3")], na.rm = TRUE))
+data <- mutate(data, WFC_score = rowMeans(data[, c("WFC1", "WFC2", "WFC3")], na.rm = TRUE))
+data <- mutate(data, FWC_score = rowMeans(data[, c("FWC1", "FWC2", "FWC3")], na.rm = TRUE))
+data <- mutate(data, Conflict_score = rowMeans(data[, c("WFC1", "WFC2", "WFC3", "FWC1", "FWC2", "FWC3")], na.rm = TRUE))
+```
+
+
+```{r explanatory graphs}
 # Bar plot for gender distribution
 ggplot(data, aes(x = factor(gender,
                             levels = c(1, 2, 3, 4),
@@ -81,12 +161,6 @@ ggplot(data, aes(x = industry)) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels
 
-# Histogram for years of experience
-ggplot(data, aes(x = experience)) +
-  geom_histogram(binwidth = 2, fill = "purple", color = "white") +
-  labs(title = "Years of Experience Distribution", x = "Years of Experience", y = "Count") +
-  theme_minimal()
-
 # Bar plot for education level
 ggplot(data, aes(x = factor(education_level,
                             levels = c(1, 2, 3, 4, 5),
@@ -95,4 +169,9 @@ ggplot(data, aes(x = factor(education_level,
   labs(title = "Education Level Distribution", x = "Education Level", y = "Count") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels
+
+```
+
+
+
 
