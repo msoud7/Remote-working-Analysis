@@ -138,6 +138,63 @@ data <- mutate(data, FWC_score = rowMeans(data[, c("FWC1", "FWC2", "FWC3")], na.
 data <- mutate(data, Conflict_score = rowMeans(data[, c("WFC1", "WFC2", "WFC3", "FWC1", "FWC2", "FWC3")], na.rm = TRUE))
 ```
 
+```{r H-1: Remote working negatively affects work-life balance by blurring boundaries between work and personal life}
+demographics <- "gender + age + education_level + employment_type + industry + experience"
+
+# Perform a linear regression for H-1
+model_H1 <- lm(as.formula(paste("WLB_score ~ RW +", demographics)), data = data)
+summary(model_H1)
+
+# Check for the significance of the predictor (RW)
+anova(model_H1)
+
+# Boxplot to visualize the relationship between remote work type and work-life balance
+ggplot(data, aes(x = as.factor(RW), y = WLB_score)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Effect of Remote Working on Work-Life Balance",
+       x = "Work Type (1 = Remote, 2 = Hybrid, 3 = On Location)",
+       y = "Work-Life Balance Score") +
+  theme_minimal()
+
+```
+
+```{r H-2: Remote working will influence work-family conflict negatively}
+# Perform a linear regression for H-2
+model_H2 <- lm(as.formula(paste("WFC_score ~ RW +", demographics)), data = data)
+summary(model_H2)
+
+# Check for significance
+anova(model_H2)
+
+# Boxplot to visualize the relationship between remote work type and work-family conflict
+ggplot(data, aes(x = as.factor(RW), y = WFC_score)) +
+  geom_boxplot(fill = "lightcoral") +
+  labs(title = "Effect of Remote Working on Work-Family Conflict",
+       x = "Work Type (1 = Remote, 2 = Hybrid, 3 = On Location)",
+       y = "Work-Family Conflict Score") +
+  theme_minimal()
+
+```
+
+```{r H-3: Work-family conflicts will be negatively correlated with Work-life balance}
+# Calculate Pearson correlation for H-3
+correlation_H3 <- cor(data$WFC_score, data$WLB_score, use = "complete.obs", method = "pearson")
+correlation_H3
+
+# Perform a test of significance for the correlation
+cor_test_H3 <- cor.test(data$WFC_score, data$WLB_score, method = "pearson")
+cor_test_H3
+
+# Scatter plot to visualize the correlation between work-family conflict and work-life balance
+ggplot(data, aes(x = WFC_score, y = WLB_score)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  labs(title = "Correlation between Work-Family Conflict and Work-Life Balance",
+       x = "Work-Family Conflict Score",
+       y = "Work-Life Balance Score") +
+  theme_minimal()
+
+```
 
 ```{r explanatory graphs}
 # Bar plot for gender distribution
