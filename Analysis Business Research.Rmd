@@ -5,6 +5,8 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
+## Loading libraries
+
 ```{r loading packages message = FALSE, warning = FALSE}
 library(dplyr)
 library(readxl)
@@ -13,7 +15,10 @@ library(readr)
 library(ggplot2)
 library(ltm)
 library(janitor)
+library(car)
 ```
+
+## Preparations
 
 ```{r load and mutate data}
 # Read in the data
@@ -93,15 +98,34 @@ data <- data %>%
   dplyr::select(-c("location", "work_last_4weeks", "home_work_freq")) %>% 
   na.omit() # removed 4 observations! check if this can be prevented.
 
-# Reverse coding WFC and FWC items
+# Reverse coding
 data <- data %>%
   mutate(
-    WFC1 = 6 - WFC1,  # Assuming a 5-point scale (1 to 5)
-    WFC2 = 6 - WFC2,
-    WFC3 = 6 - WFC3,
-    FWC1 = 6 - FWC1,
-    FWC2 = 6 - FWC2,
-    FWC3 = 6 - FWC3
+    4 - RW,
+    6 - WLB1,
+    6 - WLB2,
+    6 - WLB3, 
+    6 - WFC1,
+    6 - WFC2,
+    6 - WFC3,
+    6 - FWC1,
+    6 - FWC2,
+    6 - FWC3
+  )
+```
+
+```{r converting data types}
+library(dplyr)
+
+data <- data %>%
+  mutate(
+    gender = case_when(
+      gender == 1 ~ 1,  # Male
+      gender == 2 ~ 2,  # Female
+      gender %in% c(3, 4) ~ 3  # Combine Non-binary and Prefer not to say into Other
+    ),
+    gender = factor(gender, levels = c(1, 2, 3), 
+                    labels = c("Male", "Female", "Other")),
   )
 ```
 
@@ -111,8 +135,7 @@ data <- data %>%
 constructs <- list(
   WLB = c("WLB1", "WLB2", "WLB3"),
   WFC = c("WFC1", "WFC2", "WFC3"),   
-  FWC = c("FWC1", "FWC2", "FWC3"),
-  CONFLICTS = c("WFC1", "WFC2", "WFC3", "FWC1", "FWC2", "FWC3")
+  FWC = c("FWC1", "FWC2", "FWC3")
 )
 
 #create function to calculate the alpha
@@ -138,15 +161,167 @@ data <- mutate(data, FWC_score = rowMeans(data[, c("FWC1", "FWC2", "FWC3")], na.
 data <- mutate(data, Conflict_score = rowMeans(data[, c("WFC1", "WFC2", "WFC3", "FWC1", "FWC2", "FWC3")], na.rm = TRUE))
 ```
 
+## Description of demographics
+
+```{r gender}
+print((table(data$gender) / sum(table(data$gender))) * 100)
+```
+
+```{r age}
+summary(data$age)
+ggplot(data = data, mapping = aes(x = age)) +
+  geom_histogram(binwidth = 1, fill = "lightblue", color = "black") + # Histogram 
+  labs(title = "Age Distribution",
+       x = "Age",
+       y = "Count") + # Labels for axes
+  theme_minimal() # A minimal theme for a cleaner look
+sd(data$age)
+```
+
+```{r experience}
+summary(data$experience)
+ggplot(data = data, mapping = aes(x = experience)) +
+  geom_histogram(binwidth = 1, fill = "lightgreen", color = "black") + # Histogram
+  labs(title = "Experience Distribution",
+       x = "Years",
+       y = "Count") + # Labels for axes
+  theme_minimal() # A minimal theme for a cleaner look
+```
+
+```{r education level}
+ggplot(data = data, mapping = aes(x = factor(education_level,
+                                              levels = c(1,2,3,4,5), 
+                                              labels = c("1 Primary", 
+                                                         "2 Secondary", 
+                                                         "3 Bachelor's", 
+                                                         "4 Master's", 
+                                                         "5 Doctorate")))) +
+  geom_bar(fill = "lightpink", color = "black") +
+  geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +
+  labs(title = "Education Level Distribution",
+       x = "Education Level",
+       y = "Count") +
+  theme_minimal() +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05)))
+
+data %>%
+  count(education_level) %>%
+  mutate(percentage = (n / sum(n)) * 100)
+```
+
+```{r employment type}
+ggplot(data = data, mapping = aes(x = factor(employment_type,
+                                              levels = c(1,2,3,4,5, 6), 
+                                              labels = c("1 Full-time", 
+                                                         "2 Part-time", 
+                                                         "3 Internship", 
+                                                         "4 Temporary", 
+                                                         "5 Freelance",
+                                                         "6 Other")))) +
+  geom_bar(fill = "lightyellow", color = "black") +
+  geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +
+  labs(title = "Employment type",
+       x = "Type",
+       y = "Count") +
+  theme_minimal() +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05)))
+
+data %>%
+  count(employment_type) %>%
+  mutate(percentage = (n / sum(n)) * 100)
+```
+
+```{r remote work}
+ggplot(data = data, mapping = aes(x = factor(RW,
+                                              levels = c(1,2,3), 
+                                              labels = c("1 On location", 
+                                                         "2 Hybrid", 
+                                                         "3 Remotely" 
+                                                        )))) +
+  geom_bar(fill = "orange", color = "black") +
+  geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +
+  labs(title = "Work location",
+       x = "Type",
+       y = "Count") +
+  theme_minimal() +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05)))
+```
+
+
+## Correlation analysis
+
+```{r}
+correlation_matrix <- cor(data[c("WLB_score", "WFC_score", "FWC_score", "RW")], use = "complete.obs")
+correlation_matrix
+```
+
+## Exploratory Factor Analysis (EFA)
+
+```{r setup EFA}
+# Load the psych library for EFA functions
+library(psych)
+
+# Select items for factor analysis (in this example, using all WLB, WFC, and FWC items)
+efa_items <- data %>% dplyr::select(WLB1, WLB2, WLB3, WFC1, WFC2, WFC3, FWC1, FWC2, FWC3)
+
+# Check the adequacy of your data for EFA (Kaiser-Meyer-Olkin Measure of Sampling Adequacy)
+KMO_result <- KMO(efa_items)
+cat("Kaiser-Meyer-Olkin Measure of Sampling Adequacy:", KMO_result$MSA, "\n")
+print(KMO_result)
+
+# Bartlett's Test of Sphericity
+bartlett_result <- cortest.bartlett(cor(efa_items), n = nrow(data))
+cat("Bartlett's Test of Sphericity:\n")
+print(bartlett_result)
+```
+
+Chi square is very high which means that the data is a very good fit for Factor analysis.
+
+```{r}
+# Scree plot to help determine the number of factors
+fa.parallel(efa_items, fm = "ml", fa = "fa")
+
+# Conduct Exploratory Factor Analysis
+# Here we assume 2 factors based on Scree Plot or Kaiser’s criterion (adjust the number if necessary)
+efa_result <- fa(efa_items, nfactors = 3, rotate = "varimax", fm = "ml")
+
+# Display factor loadings
+print(efa_result$loadings, cutoff = 0.3)
+
+```
+
+Scree plot suggests that I should extract 2 components
+
+Factor 1 (ML1) explains 28.3% of the variance.
+Factor 2 (ML2) explains 24.3% of the variance.
+Cumulative Variance: Together, these factors explain 52.6% of the variance, which is generally acceptable for social science constructs.
+
+```{r}
+library(lavaan)
+
+# Specify CFA model based on EFA results
+cfa_model <- '
+  WLB =~ WLB1 + WLB2 + WLB3
+  FWC =~ WFC1 + WFC2 + WFC3 + FWC1 + FWC2 + FWC3
+'
+
+# Fit the model
+fit <- cfa(cfa_model, data = data)
+
+# Review model fit
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+
+```
+
+Extremely low p-value so highly statistically significant. WFC3 has a low loading (0.363), which means it might not be strongly related to the latent factor FWC.
+
+## Hypothesis testing
+
 ```{r H-1: Remote working negatively affects work-life balance by blurring boundaries between work and personal life}
-demographics <- "gender + age + education_level + employment_type + industry + experience"
-
 # Perform a linear regression for H-1
-model_H1 <- lm(as.formula(paste("WLB_score ~ RW +", demographics)), data = data)
-summary(model_H1)
+model_H1 <- lm("WLB_score ~ RW + experience + gender + education_level + employment_type", data = data)
 
-# Check for the significance of the predictor (RW)
-anova(model_H1)
+summary(model_H1)
 
 # Boxplot to visualize the relationship between remote work type and work-life balance
 ggplot(data, aes(x = as.factor(RW), y = WLB_score)) +
@@ -158,13 +333,11 @@ ggplot(data, aes(x = as.factor(RW), y = WLB_score)) +
 
 ```
 
-```{r H-2: Remote working will influence work-family conflict negatively}
-# Perform a linear regression for H-2
-model_H2 <- lm(as.formula(paste("WFC_score ~ RW +", demographics)), data = data)
-summary(model_H2)
+```{r H-2.1: Remote working will influence work-family conflict negatively}
+# Perform a linear regression for H-2.1
+model_H21 <- lm("WFC_score ~ RW + age + experience + gender + education_level + employment_type", data = data)
 
-# Check for significance
-anova(model_H2)
+summary(model_H21)
 
 # Boxplot to visualize the relationship between remote work type and work-family conflict
 ggplot(data, aes(x = as.factor(RW), y = WFC_score)) +
@@ -176,66 +349,58 @@ ggplot(data, aes(x = as.factor(RW), y = WFC_score)) +
 
 ```
 
+```{r H-2.2: Remote working will influence family-work conflict negatively}
+# Perform a linear regression for H-2.2
+model_H22 <- lm("FWC_score ~ RW + age + experience + gender + education_level + employment_type", data = data)
+
+summary(model_H22)
+
+# Boxplot to visualize the relationship between remote work type and work-family conflict
+ggplot(data, aes(x = as.factor(RW), y = FWC_score)) +
+  geom_boxplot(fill = "lightcoral") +
+  labs(title = "Effect of Remote Working on Work-Family Conflict",
+       x = "Work Type (1 = Remote, 2 = Hybrid, 3 = On Location)",
+       y = "Work-Family Conflict Score") +
+  theme_minimal()
+```
+
+```{r H-2.3}
+# Perform a linear regression for H-2.3
+model_H23 <- lm("Conflict_score ~ RW + age + experience + gender + education_level + employment_type", data = data)
+
+summary(model_H23)
+
+# Boxplot to visualize the relationship between remote work type and work-family conflict
+ggplot(data, aes(x = as.factor(RW), y = Conflict_score)) +
+  geom_boxplot(fill = "lightcoral") +
+  labs(title = "Effect of Remote Working on Work-Family Conflict",
+       x = "Work Type (1 = Remote, 2 = Hybrid, 3 = On Location)",
+       y = "Work-Family Conflict Score") +
+  theme_minimal()
+```
+
+
 ```{r H-3: Work-family conflicts will be negatively correlated with Work-life balance}
-# Calculate Pearson correlation for H-3
-correlation_H3 <- cor(data$WFC_score, data$WLB_score, use = "complete.obs", method = "pearson")
-correlation_H3
+# Perform Pearson correlation between Conflict Score and WLB Score
+correlation_H3 <- cor(data$Conflict_score, data$WLB_score, use = "complete.obs", method = "pearson")
 
 # Perform a test of significance for the correlation
-cor_test_H3 <- cor.test(data$WFC_score, data$WLB_score, method = "pearson")
+cor_test_H3 <- cor.test(data$Conflict_score, data$WLB_score, method = "pearson")
+
+# Display the results
+correlation_H3
 cor_test_H3
 
-# Scatter plot to visualize the correlation between work-family conflict and work-life balance
-ggplot(data, aes(x = WFC_score, y = WLB_score)) +
+# Optional: Scatter plot to visualize the correlation
+ggplot(data, aes(x = Conflict_score, y = WLB_score)) +
   geom_point(color = "blue", alpha = 0.6) +
   geom_smooth(method = "lm", color = "red", se = FALSE) +
-  labs(title = "Correlation between Work-Family Conflict and Work-Life Balance",
-       x = "Work-Family Conflict Score",
+  labs(title = "Correlation between Conflict Score and Work-Life Balance",
+       x = "Conflict Score (WFC + FWC)",
        y = "Work-Life Balance Score") +
   theme_minimal()
-
 ```
 
-```{r explanatory graphs}
-# Bar plot for gender distribution
-ggplot(data, aes(x = factor(gender,
-                            levels = c(1, 2, 3, 4),
-                            labels = c("Male", "Female", "Non-binary", "Prefer not to say")))) +
-  geom_bar(fill = "steelblue") +
-  labs(title = "Gender Distribution", x = "Gender", y = "Count") +
-  theme_minimal()
-
-
-# Histogram for age distribution
-ggplot(data, aes(x = age)) +
-  geom_histogram(binwidth = 5, fill = "steelblue", color = "white") +
-  labs(title = "Age Distribution", x = "Age", y = "Count") +
-  theme_minimal()
-
-# Bar plot for employment type
-ggplot(data, aes(x = employment_type)) +
-  geom_bar(fill = "lightgreen") +
-  labs(title = "Employment Type Distribution", x = "Employment Type", y = "Count") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels
-
-# Bar plot for industry
-ggplot(data, aes(x = industry)) +
-  geom_bar(fill = "coral") +
-  labs(title = "Industry Distribution", x = "Industry", y = "Count") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels
-
-# Bar plot for education level
-ggplot(data, aes(x = factor(education_level,
-                            levels = c(1, 2, 3, 4, 5),
-                            labels = c("Primary", "Secondary", "Bachelor", "Masters", "Doctorate")))) +
-  geom_bar(fill = "lightblue") +
-  labs(title = "Education Level Distribution", x = "Education Level", y = "Count") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels
-
-```
 
 
 
