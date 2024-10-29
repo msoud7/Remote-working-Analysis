@@ -16,6 +16,7 @@ library(ggplot2)
 library(ltm)
 library(janitor)
 library(car)
+library(lavaan)
 ```
 
 ## Preparations
@@ -294,11 +295,9 @@ Scree plot suggests that I should extract 2 components
 
 Factor 1 (ML1) explains 28.3% of the variance.
 Factor 2 (ML2) explains 24.3% of the variance.
-Cumulative Variance: Together, these factors explain 52.6% of the variance, which is generally acceptable for social science constructs.
+Cumulative Variance: Together, these factors explain 52.6% of the variance, which is generally acceptable for social science constructs
 
 ```{r}
-library(lavaan)
-
 # Specify CFA model based on EFA results
 cfa_model <- '
   WLB =~ WLB1 + WLB2 + WLB3
@@ -316,6 +315,14 @@ summary(fit, fit.measures = TRUE, standardized = TRUE)
 Extremely low p-value so highly statistically significant. WFC3 has a low loading (0.363), which means it might not be strongly related to the latent factor FWC.
 
 ## Hypothesis testing
+
+```{r}
+data$education_level <- as.factor(data$education_level)
+data$employment_type <- as.factor(data$employment_type)
+```
+
+
+### Linear models
 
 ```{r H-1: Remote working negatively affects work-life balance by blurring boundaries between work and personal life}
 # Perform a linear regression for H-1
@@ -401,7 +408,38 @@ ggplot(data, aes(x = Conflict_score, y = WLB_score)) +
   theme_minimal()
 ```
 
+### Serial Mediation Analysis
 
+```{r H-1: Remote working negatively affects work-life balance by blurring boundaries between work and personal life}
+
+# Specify the mediation model
+mediation_model <- '
+  # Direct effect
+  WLB_score ~ c*RW + d1*age + d2*gender + d3*education_level + d4*employment_type
+
+  
+  # Mediators
+  WFC_score ~ a*RW  # Remote Work to Work-Family Conflict
+  FWC_score ~ b*WFC_score  # Work-Family Conflict to Family-Work Conflict
+  
+  # Indirect effects
+  indirect_WFC := a*c  # RW to WLB_score through WFC_score
+  indirect_FWC := a*b*c  # RW to WLB_score through WFC_score to FWC_score
+  
+  # Total effect
+  total := c + (a*b*c)
+'
+
+# Fit the model
+fit_mediation <- sem(mediation_model, data = data)
+
+# Review the results
+summary(fit_mediation, fit.measures = TRUE, standardized = TRUE)
+
+# Check for indirect effects
+parameterEstimates(fit_mediation, standardized = TRUE)
+
+```
 
 
 
