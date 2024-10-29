@@ -99,19 +99,18 @@ data <- data %>%
   dplyr::select(-c("location", "work_last_4weeks", "home_work_freq")) %>% 
   na.omit() # removed 4 observations! check if this can be prevented.
 
-# Reverse coding
 data <- data %>%
   mutate(
-    4 - RW,
-    6 - WLB1,
-    6 - WLB2,
-    6 - WLB3, 
-    6 - WFC1,
-    6 - WFC2,
-    6 - WFC3,
-    6 - FWC1,
-    6 - FWC2,
-    6 - FWC3
+    RW = 4 - RW,
+    WLB1 = 6 - WLB1,
+    WLB2 = 6 - WLB2,
+    WLB3 = 6 - WLB3,
+    WFC1 = 6 - WFC1,
+    WFC2 = 6 - WFC2,
+    WFC3 = 6 - WFC3,
+    FWC1 = 6 - FWC1,
+    FWC2 = 6 - FWC2,
+    FWC3 = 6 - FWC3
   )
 ```
 
@@ -190,43 +189,49 @@ ggplot(data = data, mapping = aes(x = experience)) +
 ```
 
 ```{r education level}
-ggplot(data = data, mapping = aes(x = factor(education_level,
-                                              levels = c(1,2,3,4,5), 
-                                              labels = c("1 Primary", 
-                                                         "2 Secondary", 
-                                                         "3 Bachelor's", 
-                                                         "4 Master's", 
-                                                         "5 Doctorate")))) +
+# Ensure education_level is a factor
+data$education_level <- as.factor(data$education_level)
+
+# Plot the education level distribution
+ggplot(data = data, mapping = aes(x = education_level)) +
   geom_bar(fill = "lightpink", color = "black") +
   geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +
   labs(title = "Education Level Distribution",
        x = "Education Level",
        y = "Count") +
   theme_minimal() +
+  scale_x_discrete(labels = c("1 Primary", 
+                               "2 Secondary", 
+                               "3 Bachelor's", 
+                               "4 Master's", 
+                               "5 Doctorate")) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05)))
 
+# Count and calculate percentages
 data %>%
   count(education_level) %>%
   mutate(percentage = (n / sum(n)) * 100)
+
 ```
 
 ```{r employment type}
-ggplot(data = data, mapping = aes(x = factor(employment_type,
-                                              levels = c(1,2,3,4,5, 6), 
-                                              labels = c("1 Full-time", 
-                                                         "2 Part-time", 
-                                                         "3 Internship", 
-                                                         "4 Temporary", 
-                                                         "5 Freelance",
-                                                         "6 Other")))) +
+# Plot the employment type distribution
+ggplot(data = data, mapping = aes(x = employment_type)) +
   geom_bar(fill = "lightyellow", color = "black") +
   geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +
-  labs(title = "Employment type",
+  labs(title = "Employment Type",
        x = "Type",
        y = "Count") +
   theme_minimal() +
+  scale_x_discrete(labels = c("1 Full-time", 
+                               "2 Part-time", 
+                               "3 Internship", 
+                               "4 Temporary", 
+                               "5 Freelance",
+                               "6 Other")) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05)))
 
+# Count and calculate percentages
 data %>%
   count(employment_type) %>%
   mutate(percentage = (n / sum(n)) * 100)
@@ -336,7 +341,7 @@ ggplot(data, aes(x = as.factor(RW), y = WLB_score)) +
 
 ```{r H-2.1: Remote working will influence work-family conflict negatively}
 # Perform a linear regression for H-2.1
-model_H21 <- lm("WFC_score ~ RW + age + experience + gender + education_level + employment_type", data = data)
+model_H21 <- lm("WFC_score ~ RW + gender + education_level + employment_type", data = data)
 
 summary(model_H21)
 
@@ -352,7 +357,7 @@ ggplot(data, aes(x = as.factor(RW), y = WFC_score)) +
 
 ```{r H-2.2: Remote working will influence family-work conflict negatively}
 # Perform a linear regression for H-2.2
-model_H22 <- lm("FWC_score ~ RW + age + experience + gender + education_level + employment_type", data = data)
+model_H22 <- lm("FWC_score ~ RW + gender + education_level + employment_type", data = data)
 
 summary(model_H22)
 
@@ -365,9 +370,9 @@ ggplot(data, aes(x = as.factor(RW), y = FWC_score)) +
   theme_minimal()
 ```
 
-```{r H-2.3}
+```{r H-2.3 combined conflicts}
 # Perform a linear regression for H-2.3
-model_H23 <- lm("Conflict_score ~ RW + age + experience + gender + education_level + employment_type", data = data)
+model_H23 <- lm("Conflict_score ~ RW + gender + education_level + employment_type", data = data)
 
 summary(model_H23)
 
@@ -401,39 +406,5 @@ ggplot(data, aes(x = Conflict_score, y = WLB_score)) +
        y = "Work-Life Balance Score") +
   theme_minimal()
 ```
-
-### Serial Mediation Analysis
-
-```{r H-1: Remote working negatively affects work-life balance by blurring boundaries between work and personal life}
-
-# Specify the mediation model
-mediation_model <- '
-  # Direct effect
-  WLB_score ~ c*RW + d1*age + d2*gender + d3*education_level + d4*employment_type
-
-  
-  # Mediators
-  WFC_score ~ a*RW  # Remote Work to Work-Family Conflict
-  FWC_score ~ b*WFC_score  # Work-Family Conflict to Family-Work Conflict
-  
-  # Indirect effects
-  indirect_WFC := a*c  # RW to WLB_score through WFC_score
-  indirect_FWC := a*b*c  # RW to WLB_score through WFC_score to FWC_score
-  
-  # Total effect
-  total := c + (a*b*c)
-'
-
-# Fit the model
-fit_mediation <- sem(mediation_model, data = data)
-
-# Review the results
-summary(fit_mediation, fit.measures = TRUE, standardized = TRUE)
-
-# Check for indirect effects
-parameterEstimates(fit_mediation, standardized = TRUE)
-
-```
-
 
 
