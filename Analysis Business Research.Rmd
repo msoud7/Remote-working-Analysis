@@ -258,6 +258,19 @@ print("Family Work Conflict score")
 summary(data$FWC_score)
 sd(data$FWC_score)
 ```
+```{r}
+ggplot(data) +
+  # Creating individual box plots for each score variable
+  geom_boxplot(aes(x = "WLB Score", y = WLB_score, fill = "WLB Score"), width = 0.4) +
+  geom_boxplot(aes(x = "WFC Score", y = WFC_score, fill = "WFC Score"), width = 0.4) +
+  geom_boxplot(aes(x = "FWC Score", y = FWC_score, fill = "FWC Score"), width = 0.4) +
+  
+  # Setting up titles and labels
+  labs(title = "Summary Statistics of Work and Family Scores", x = "Category", y = "Score") +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("WLB Score" = "lightblue", "WFC Score" = "lightgreen", "FWC Score" = "lightcoral"))
+```
 
 
 ```{r remote work}
