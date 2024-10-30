@@ -279,7 +279,7 @@ ggplot(data = data, mapping = aes(x = factor(RW,
 ```{r}
 WLB_density <- ggplot(data, aes(x = WLB_score)) +
   geom_density(bins = 10, fill = "lightgreen", color = "black") +
-  labs(title = "Density plot of Work-Life Balance", x = "WLB Score") +
+  labs(title = "Work-Life Balance", x = "WLB Score") +
   theme_minimal() +
   theme(axis.title.y = element_text(size = 12),
         axis.text.y = element_blank(),          
@@ -287,7 +287,7 @@ WLB_density <- ggplot(data, aes(x = WLB_score)) +
 
 WFC_density <- ggplot(data, aes(x = WFC_score)) +
   geom_density(bins = 10, fill = "lightblue", color = "black") +
-  labs(title = "Density plot of Work-Family Conflict", x = "WFC Score") +
+  labs(title = "Work-Family Conflict", x = "WFC Score") +
   theme_minimal() +
   theme(axis.title.y = element_blank(),       
         axis.text.y = element_blank(),        
@@ -295,15 +295,15 @@ WFC_density <- ggplot(data, aes(x = WFC_score)) +
 
 FWC_density <- ggplot(data, aes(x = FWC_score)) +
   geom_density(bins = 10, fill = "lightyellow", color = "black") +
-  labs(title = "Density plot of Family-Work Conflict", x = "FWC Score") +
+  labs(title = "Family-Work Conflict", x = "FWC Score") +
   theme_minimal() +
   theme(axis.title.y = element_blank(),         
         axis.text.y = element_blank(),          
         axis.ticks.y = element_blank())      
 
 grid.arrange(WLB_density, WFC_density, FWC_density, ncol = 3, 
-             top = textGrob("Frequency", gp = gpar(fontsize = 14)), 
-            )
+             top = textGrob("Density plots", gp = gpar(fontsize = 14)), 
+             bottom = textGrob("", gp = gpar(fontsize = 12)))
 ```
 
 ## Correlation analysis
